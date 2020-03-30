@@ -1,5 +1,7 @@
 #include <msp430.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 
 int value=0, i=0 ;
 int highFlag = 0;
