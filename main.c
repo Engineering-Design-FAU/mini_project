@@ -3,6 +3,10 @@
 #include <stdlib.h>
 #include <math.h>
 
+#define RED_LED BIT3 // Port 2.3
+#define GREEN_LED BIT4 // Port 2.4
+#define BUTTON BIT3 // Port 1.3
+
 int value=0, i=0 ;
 int highFlag = 0;
 int lowFlag = 0;
@@ -35,9 +39,15 @@ int main(void){
     P1REN = 0;
     P2REN = 0;
     P2DIR = 0;
-    P2DIR |= 0x01; // GREEN LED (BIT 0)
-    P1DIR |= 0x08; // RED LED (BIT 3)
+    P2DIR |= GREEN_LED;     // GREEN LED (BIT 0)
+    P2DIR |= RED_LED;       // RED LED (BIT 3)
+    P1DIR &= ~BUTTON;       //BUTTON IS AN INPUT
+    P1OUT |= BUTTON;        // PULL-UP RESISTOR
+    P1REN |= BUTTON;        // RESISTOR ENABLED
+    P1IFG &= ~BUTTON;       // CLEAR INTERRUPT FLAG
+    P1IE |= BUTTON;         // ENABLE BUTTON INTERRUPT
 
+    __enable_interrupt();
     ConfigureAdc();
 
     // reading the initial room values, lightroom, touchroom, temproom
@@ -82,15 +92,15 @@ int main(void){
                     if(stopFlag){
                         //No passwords matched
                         //flash both LEDS
-                        P2OUT |= BIT0; //Turn on Green
-                        P1OUT |= BIT3; //Turn on Red
+                        P2OUT |= GREEN_LED; //Turn on Green
+                        P2OUT |= RED_LED; //Turn on Red
                         __delay_cycles(250000);
-                        P2OUT &= ~BIT0; //Turn off Green
-                        P1OUT &= ~BIT3; //Turn off Red
+                        P2OUT &= ~GREEN_LED; //Turn off Green
+                        P2OUT &= ~RED_LED; //Turn off Red
                     } else{
                         //stopPass matched
                         dummy = 5; //so that motor stops
-                        P2OUT &= ~BIT0; //Turn off Green
+                        P2OUT &= ~GREEN_LED; //Turn off Green
                     }
                 } else{
                     //passwords matched for counter clockwise direction
@@ -110,16 +120,16 @@ int main(void){
         if(dummy == 2){
             //passwords matched for counter clockwise direction
             //Flash Green LED slow constantly
-            P2OUT |= BIT0; //Turn on Green
+            P2OUT |= GREEN_LED; //Turn on Green
             __delay_cycles(250000);
-            P2OUT &= ~BIT0; //Turn off Green
+            P2OUT &= ~GREEN_LED; //Turn off Green
             //Make motor spin in counter clockwise direction
         } else if(dummy == 4){
             //passwords matched for clockwise direction
             //Flash Green LED fast constantly
-            P2OUT |= BIT0; //Turn on Green
+            P2OUT |= GREEN_LED; //Turn on Green
             __delay_cycles(50000);
-            P2OUT &= ~BIT0; //Turn off Green
+            P2OUT &= ~GREEN_LED; //Turn off Green
             //Make motor spin in clockwise direction
         }
         //reading light repeatedly at the beginning of the main loop
@@ -131,41 +141,41 @@ int main(void){
             if(light >= lightroom * 1.10) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
                 getanalogvalues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
                 if(light >= lightroom * 1.30){
-                    //P2OUT |= BIT0; //Turn on Green
-                    // P1OUT &= ~BIT3; //Turn off Red
+                    //P2OUT |= GREEN_LED; //Turn on Green
+                    // P2OUT &= ~RED_LED; //Turn off Red
                     __delay_cycles(50000);
                     lowFlag = 1;
                     highFlag = 0;
                 } else if(light >= lightroom * 1.10){
-                    // P1OUT |= BIT3; //Turn on Red
-                    // P2OUT &= ~BIT0; //Turn off Green
+                    // P2OUT |= RED_LED; //Turn on Red
+                    // P2OUT &= ~GREEN_LED; //Turn off Green
                     __delay_cycles(50000);
                     highFlag = 1;
                     lowFlag = 0;
                 }
             }
             if(light <= lightroom * 1.10) {
-                P2OUT &= ~BIT0;
-                P1OUT &= ~BIT3;
+                P2OUT &= ~RED_LED;
+                P2OUT &= ~GREEN_LED;
                 __delay_cycles(200);
                 //check flags and log corresponding password digit. This is done here so that we don't get multiple unintended entries
                 if(lowFlag){
                     //BLINK RED LED ONCE SLOW
-                    P1OUT |= BIT3; //Turn on Red
+                    P2OUT |= RED_LED; //Turn on Red
                     __delay_cycles(250000);
-                    P1OUT &= ~BIT3; //Turn off Red
+                    P2OUT &= ~RED_LED; //Turn off Red
                     low += 1;
                         inputPass[index] = 0;
                         index +=1; //update index
                 } else if(highFlag){
                     //BLINK RED LED TWICE FAST
-                    P1OUT |= BIT3; //Turn on Red
+                    P2OUT |= RED_LED; //Turn on Red
                     __delay_cycles(50000);
-                    P1OUT &= ~BIT3; //Turn off Red
+                    P2OUT &= ~RED_LED; //Turn off Red
                     __delay_cycles(50000);
-                    P1OUT |= BIT3; //Turn on Red
+                    P2OUT |= RED_LED; //Turn on Red
                     __delay_cycles(50000);
-                    P1OUT &= ~BIT3; //Turn off Red
+                    P2OUT &= ~RED_LED; //Turn off Red
                     high += 1;
                     inputPass[index] = 1;
                     index +=1; //update index
@@ -186,7 +196,7 @@ void ConfigureAdc(void){
    ADC10DTC1 = 0x03;                    // 3 conversions THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
    ADC10AE0 |= (BIT0 | BIT1 | BIT2);            // ADC10 option select THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
 }
-
+/*
 void LED(int green, int red){
     if(green){
         P1OUT |= 0x01;
@@ -199,6 +209,7 @@ void LED(int green, int red){
         P1OUT &= ~0x08;
     }
 }
+*/
 
 void fadeLED(int valuePWM){
     P1SEL |= (BIT6);                            // P1.0 and P1.6 TA1/2 options
@@ -229,4 +240,10 @@ void getanalogvalues(){
 #pragma vector=ADC10_VECTOR
 __interrupt void ADC10_ISR(void){
     __bic_SR_register_on_exit(CPUOFF);
+}
+
+#pragma vector=PORT1_VECTOR
+__interrupt void PORT1_ISR(void){
+    P2OUT |= GREEN_LED;             //DISABLE GREEN LED
+    P1IFG &= ~BUTTON;               // CLEAR INTERRUPT FLAG FOR PORT 1.3
 }
