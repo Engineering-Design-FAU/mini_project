@@ -30,7 +30,6 @@ int ADCReading [3];
 void fadeLED(int valuePWM); //this is from skeleton code, not using it
 void ConfigureAdc(void);
 void getanalogvalues();
-void LED(int green, int red); // This is from Akiva's code, not using it after all
 
 int main(void){
     WDTCTL = WDTPW + WDTHOLD;                   // Stop WDT
@@ -197,20 +196,6 @@ void ConfigureAdc(void){
    ADC10DTC1 = 0x03;                    // 3 conversions THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
    ADC10AE0 |= LIGHT_SENSOR;            // ADC10 option select THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
 }
-/*
-void LED(int green, int red){
-    if(green){
-        P1OUT |= 0x01;
-    } else {
-        P1OUT &= ~0x01;
-    }
-    if(red){
-        P1OUT |= 0x08;
-    } else {
-        P1OUT &= ~0x08;
-    }
-}
-*/
 
 void fadeLED(int valuePWM){
     P1SEL |= (BIT6);                            // P1.0 and P1.6 TA1/2 options
@@ -225,17 +210,17 @@ void getanalogvalues(){
     temp = 0;
     light = 0;
     touch =0;              // set all analog values to zero
-    for(i=1; i<=50 ; i++){                       // read all three analog values 5 times each and average
+    for(i=1; i<=50 ; i++){                       // read all three analog values 50 times each and average
         ADC10CTL0 &= ~ENC;
         while (ADC10CTL1 & BUSY);                       //Wait while ADC is busy
         ADC10SA = (unsigned)&ADCReading[0];         //RAM Address of ADC Data, must be reset every conversion
         ADC10CTL0 |= (ENC | ADC10SC);                   //Start ADC Conversion
         while (ADC10CTL1 & BUSY);                       //Wait while ADC is busy
-        light += ADCReading[0];                         // sum  all 5 reading for the three variables
+        light += ADCReading[0];                         // sum  all 50 reading for the three variables
         touch += ADCReading[1];
         temp += ADCReading[2];
     }
-    light = light/50; touch = touch/50; temp = temp/50;    // Average the 5 reading for the three variables
+    light = light/50; touch = touch/50; temp = temp/50;    // Average the 50 reading for the three variables
 }
 
 #pragma vector=ADC10_VECTOR
