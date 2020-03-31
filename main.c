@@ -3,9 +3,10 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define RED_LED BIT3 // Port 2.3
-#define GREEN_LED BIT4 // Port 2.4
-#define BUTTON BIT3 // Port 1.3
+#define RED_LED         BIT3            // Port 2.3
+#define GREEN_LED       BIT4            // Port 2.4
+#define BUTTON          BIT3            // Port 1.3
+#define LIGHT_SENSOR    BIT2            // Port 1.2
 
 int value=0, i=0 ;
 int highFlag = 0;
@@ -194,7 +195,7 @@ void ConfigureAdc(void){
    ADC10CTL0 = ADC10SHT_2 | MSC | ADC10ON;
    while (ADC10CTL1 & BUSY);
    ADC10DTC1 = 0x03;                    // 3 conversions THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
-   ADC10AE0 |= (BIT0 | BIT1 | BIT2);            // ADC10 option select THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
+   ADC10AE0 |= LIGHT_SENSOR;            // ADC10 option select THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
 }
 /*
 void LED(int green, int red){
