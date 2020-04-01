@@ -7,8 +7,13 @@
 #define GREEN_LED       BIT4            // Port 2.4
 #define BUTTON          BIT3            // Port 1.3
 #define LIGHT_SENSOR    BIT2            // Port 1.2
-#define LOW_PULSE       1.50            // Constant that light is multiplied by to detect low pulse
-#define HIGH_PULSE      1.30            // Constant that light is multiplied by to detect high pulse
+#define LOW_PULSE       5555555.30            // Constant that light is multiplied by to detect low pulse
+#define HIGH_PULSE      1.10            // Constant that light is multiplied by to detect high pulse
+#define LOW_DEADZONE    1.05            // Deadzone for light (low)
+#define HIGH_DEADZONE   1.10            // Deadzone for light (High)
+#define MOTOR_OUT1      BIT4            // Port 1.4
+#define MOTOR_OUT2      BIT5            // Port 1.5
+#define PWM             BIT6            // Port 2.6
 
 int value=0, i=0 ;
 int highFlag = 0, lowFlag = 0;
@@ -20,9 +25,9 @@ int stopPass [5] = {0,0,0,0,0};
 int inputPass [5];
 int index = 0;
 int light = 0, lightroom = 0, dimled=50;
-int clockFlag = 0, counterFlag = 0, stopFlag = 0;
+int clockFlag = 0, counterFlag = 0, stopFlag = 0;       // clockFlag (clockwise) & counterFlag (counterclockwise)
 int resetPassFlag = 0;
-int motor_val = 0;
+int motorFlag = 0;                  // 1 - BRAKE, 2 - FW, 3 - BRAKE, 4 - RV
 int ADCReading [3];
 
 void fadeLED(int valuePWM);                 //this is from skeleton code, not using it
@@ -31,7 +36,8 @@ void getAnalogValues(void);                 // Get analog values to convert to d
 void processAnalogValues(void);             // Process light variable to set high/low flag
 void greenLED(int green);                    // Function for setting green on or off
 void redLED(int red);                       // Function for setting red on or off
-void setMotor(int motor_val);               // Set Motor Outputs
+void setMotor(int motorFlag);               // Set Motor Outputs
+void tryAgainLED(void);                           // To Let The User Know that Password was Wrong (Try Again)
 
 int main(void){
     WDTCTL = WDTPW + WDTHOLD;                   // Stop WDT
@@ -41,32 +47,37 @@ int main(void){
     P1REN = 0;
     P2REN = 0;
     P2DIR = 0;
-    P2DIR |= GREEN_LED;     // GREEN LED (BIT 0)
-    P2DIR |= RED_LED;       // RED LED (BIT 3)
-    P1DIR &= ~BUTTON;       //BUTTON IS AN INPUT
-    P1OUT |= BUTTON;        // PULL-UP RESISTOR
-    P1REN |= BUTTON;        // RESISTOR ENABLED
-    P1IFG &= ~BUTTON;       // CLEAR INTERRUPT FLAG
-    P1IE |= BUTTON;         // ENABLE BUTTON INTERRUPT
-
+    P2DIR |= (GREEN_LED | RED_LED | PWM);                       // SET LEDs as OUTPUT
+    P2SEL |= PWM;                                   // Select PWM as OUTPUT
+    P1DIR &= ~BUTTON;                                    //BUTTON IS AN INPUT
+    P1DIR |= (MOTOR_OUT1 | MOTOR_OUT2);             // SET PWM AND MOTOR OUTPUTS
+    P1OUT |= BUTTON;                                    // PULL-UP RESISTOR
+    P1REN |= BUTTON;                                    // RESISTOR ENABLED
+    P1IFG &= ~BUTTON;                                   // CLEAR INTERRUPT FLAG
+    P1IE |= BUTTON;                                     // ENABLE BUTTON INTERRUPT
+    /*
+    TA0CCR0 = 1000;         //Set the period in the Timer A0 Capture/Compare 0 register to 1000 us.
+    TA0CCTL1 = OUTMOD_7;
+    TA0CCR1 = 500;               //The period in microseconds that the power is ON. It's half the time, which translates to a 50% duty cycle.
+    TA0CTL = TASSEL_2 + MC_1;    //TASSEL_2 selects SMCLK as the clock source, and MC_1 tells it to count up to the value in TA0CCR0.
+    */
     __enable_interrupt();
     ConfigureAdc();
+    //__bis_SR_register(LPM0_bits);       //Switch to low power mode 0.
 
     // reading the initial room value lightroom
     // __delay_cycles(250);
     __delay_cycles(25000);
     getAnalogValues();
     lightroom = light;
-
     __delay_cycles(250);
-
     __delay_cycles(200);
 
     for (;;){
         /*
          * When a high is detected it will reset the clockwise password
          * When a low is detected it will reset the counterclockwise password
-         * The GREEN LED Blinks Accordingly
+         * The RED LED Blinks Accordingly
          */
         /*
         if(resetPassFlag){
@@ -80,57 +91,49 @@ int main(void){
             resetPassFlag = 0;
         }
         */
+        if(motorFlag){
+            while(1){
+                setMotor(motorFlag);
+                if(index > 4){
+                  break;
+                }
+                getAnalogValues();
+                processAnalogValues();
+            }
+        }
         if(index > 4){ //a full password is entered
-            clockFlag = 0;
-            counterFlag = 0;
-            stopFlag = 0;
+            clockFlag = 1;
+            counterFlag = 1;
+            stopFlag = 1;
+            // Check if it is clockwise password
             for(i=0; i<=4 ; i++){
                 if(clockWisePass[i] != inputPass[i]){
-                    clockFlag = 1; //if code gets here, then entered password does not match clockwise direction password
+                    clockFlag = 0;
+                    break;
+                }
+            }
+            // Check if it is counter-clockwise password
+            for(i=0; i<=4 ; i++){
+                if(counterWisePass[i] != inputPass[i]){
+                    counterFlag = 0;
+                    break;
+                }
+            }
+            // Check if it is stop password
+            for(i=0; i<=4 ; i++){
+                if(stopPass[i] != inputPass[i]){
+                    stopFlag = 0;
+                    break;
                 }
             }
             if(clockFlag){
-                //passwords did not match for clockwise direction
-                //motor_val =1;
-                //now check for counter clockwise password
-                for(i=0; i<=4 ; i++){
-                    if(counterWisePass[i] != inputPass[i]){
-                        counterFlag = 1; //if code get here, then entered password does not match counter clockwise direction password
-                    }
-                }
-                if(counterFlag){
-                    //neither passwords matched
-                    //motor_val = 3;
-                    //check that entered code is not stopPass
-                    for(i=0; i<=4 ; i++){
-                        if(stopPass[i] != inputPass[i]){
-                            stopFlag = 1; //if code gets here, then entered password does not match clockwise direction password
-                        }
-                    }
-                    if(stopFlag){
-                        //No passwords matched
-                        //flash both LEDS
-                        greenLED(1);                  // Turn on Green LED
-                        redLED(1);                  // Turn on Red LED
-                        __delay_cycles(250000);
-                        greenLED(0);                 //Turn off Green
-                        redLED(0);                      //Turn off Red
-                    } else{
-                        //stopPass matched
-                        motor_val = 5; //so that motor stops
-                        greenLED(0); //Turn off Green
-                    }
-                } else{
-                    //passwords matched for counter clockwise direction
-                    //Flash Green LED slow constantly
-                    //Make motor spin in counter clockwise direction
-                    motor_val = 2;
-                }
-            } else{
-                //passwords matched for clockwise direction
-                //Flash Green LED fast constantly
-                //Make motor spin in clockwise direction
-                motor_val = 4;
+                motorFlag = 2;
+            } else if(counterFlag){
+                motorFlag = 4;
+            } else if(stopFlag && motorFlag > 0){
+                motorFlag = 1;
+            } else {
+                tryAgainLED();
             }
             index = 0; //reset index to enter password again
         }
@@ -158,21 +161,34 @@ void redLED(int red){
 }
 
 void setMotor(int value){
-    //according to motor_val value do something
-    if(motor_val == 2){
-        //passwords matched for counter clockwise direction
-        //Flash Green LED slow constantly
-        greenLED(1);                         //Turn on Green
+    //according to motorFlag value do something
+    switch(value){
+    case 1:
+        P1OUT &= ~MOTOR_OUT1;
+        P1OUT &= ~MOTOR_OUT2;
+        greenLED(0);
+        motorFlag = 0;
+        break;
+    case 2:
+        P1OUT |= MOTOR_OUT1;
+        P1OUT &= ~MOTOR_OUT2;
+        greenLED(1);
         __delay_cycles(250000);
-        greenLED(0);                        //Turn off Green
-        //Make motor spin in counter clockwise direction
-    } else if(motor_val == 4){
-        //passwords matched for clockwise direction
-        //Flash Green LED fast constantly
-        greenLED(1);                 //Turn on Green
+        greenLED(0);
+        break;
+    case 3:
+        P1OUT |= MOTOR_OUT1;
+        P1OUT |= MOTOR_OUT2;
+        greenLED(0);
+        motorFlag = 0;
+        break;
+    case 4:
+        P1OUT &= ~MOTOR_OUT1;
+        P1OUT |= MOTOR_OUT2;
+        greenLED(1);
         __delay_cycles(50000);
-        greenLED(0);                //Turn off Green
-        //Make motor spin in clockwise direction
+        greenLED(0);
+        break;
     }
 }
 
@@ -192,6 +208,19 @@ void fadeLED(int valuePWM){
     TACTL = TASSEL_2 + MC_1; // SMCLK, up mode
 }
 
+void tryAgainLED(void){
+    redLED(0);
+    greenLED(0);
+    for(i = 0; i < 20; i++){
+        redLED(1);
+        greenLED(1);
+        __delay_cycles(50000);
+        redLED(0);
+        greenLED(0);
+        __delay_cycles(50000);
+    }
+}
+
 void getAnalogValues(void){
     i = 0;
     light = 0;           // set all analog values to zero
@@ -207,10 +236,10 @@ void getAnalogValues(void){
 }
 
 void processAnalogValues(void){
-    //I chose the range 1.05 to 1.10 of the value; that is no action if  (1.05 lightroom < light < 1.1 lightroom)
-    if(light < lightroom * 1.10 && light > lightroom * 1.05) {}
+    //Deadzone range for handling noise, so that the code does nothing
+    if(light < lightroom * HIGH_DEADZONE && light > lightroom * LOW_DEADZONE) {}
     else{
-        if(light >= lightroom * HIGH_PULSE) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
+        if(light >= lightroom * HIGH_DEADZONE) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
             getAnalogValues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
             if(light >= lightroom * LOW_PULSE){
                 __delay_cycles(50000);
@@ -222,7 +251,7 @@ void processAnalogValues(void){
                 lowFlag = 0;
             }
         }
-        if(light <= lightroom * HIGH_PULSE) {
+        if(light <= lightroom * HIGH_DEADZONE) {
             redLED(0);
             greenLED(0);
             __delay_cycles(200);
