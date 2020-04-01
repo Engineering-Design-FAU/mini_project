@@ -110,15 +110,15 @@ int main(void){
                     if(stopFlag){
                         //No passwords matched
                         //flash both LEDS
-                        P2OUT |= GREEN_LED; //Turn on Green
-                        P2OUT |= RED_LED; //Turn on Red
+                        greenLED(1);                  // Turn on Green LED
+                        redLED(1);                  // Turn on Red LED
                         __delay_cycles(250000);
-                        P2OUT &= ~GREEN_LED; //Turn off Green
-                        P2OUT &= ~RED_LED; //Turn off Red
+                        greenLED(0);                 //Turn off Green
+                        redLED(0);                      //Turn off Red
                     } else{
                         //stopPass matched
                         motor_val = 5; //so that motor stops
-                        P2OUT &= ~GREEN_LED; //Turn off Green
+                        greenLED(0); //Turn off Green
                     }
                 } else{
                     //passwords matched for counter clockwise direction
@@ -133,22 +133,6 @@ int main(void){
                 motor_val = 4;
             }
             index = 0; //reset index to enter password again
-        }
-        //according to motor_val value do something
-        if(motor_val == 2){
-            //passwords matched for counter clockwise direction
-            //Flash Green LED slow constantly
-            greenLED(1);                         //Turn on Green
-            __delay_cycles(250000);
-            greenLED(0);                        //Turn off Green
-            //Make motor spin in counter clockwise direction
-        } else if(motor_val == 4){
-            //passwords matched for clockwise direction
-            //Flash Green LED fast constantly
-            greenLED(1);                 //Turn on Green
-            __delay_cycles(50000);
-            greenLED(0);                //Turn off Green
-            //Make motor spin in clockwise direction
         }
         //reading light repeatedly at the beginning of the main loop
         getAnalogValues();
@@ -170,6 +154,25 @@ void redLED(int red){
         P2OUT |= RED_LED;
     } else{
         P2OUT &= ~RED_LED;
+    }
+}
+
+void setMotor(int value){
+    //according to motor_val value do something
+    if(motor_val == 2){
+        //passwords matched for counter clockwise direction
+        //Flash Green LED slow constantly
+        greenLED(1);                         //Turn on Green
+        __delay_cycles(250000);
+        greenLED(0);                        //Turn off Green
+        //Make motor spin in counter clockwise direction
+    } else if(motor_val == 4){
+        //passwords matched for clockwise direction
+        //Flash Green LED fast constantly
+        greenLED(1);                 //Turn on Green
+        __delay_cycles(50000);
+        greenLED(0);                //Turn off Green
+        //Make motor spin in clockwise direction
     }
 }
 
