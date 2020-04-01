@@ -53,15 +53,15 @@ int main(void){
     P1REN |= BUTTON;                                    // RESISTOR ENABLED
     P1IFG &= ~BUTTON;                                   // CLEAR INTERRUPT FLAG
     P1IE |= BUTTON;                                     // ENABLE BUTTON INTERRUPT
-
+    /*
     TA0CCR0 = 1000;         //Set the period in the Timer A0 Capture/Compare 0 register to 1000 us.
     TA0CCTL1 = OUTMOD_7;
     TA0CCR1 = 500;               //The period in microseconds that the power is ON. It's half the time, which translates to a 50% duty cycle.
     TA0CTL = TASSEL_2 + MC_1;    //TASSEL_2 selects SMCLK as the clock source, and MC_1 tells it to count up to the value in TA0CCR0.
-
+    */
     __enable_interrupt();
     ConfigureAdc();
-    __bis_SR_register(LPM0_bits);       //Switch to low power mode 0.
+    //__bis_SR_register(LPM0_bits);       //Switch to low power mode 0.
 
     // reading the initial room value lightroom
     // __delay_cycles(250);
@@ -70,6 +70,8 @@ int main(void){
     lightroom = light;
     __delay_cycles(250);
     __delay_cycles(200);
+
+    //motorFlag = 2;
 
     for (;;){
         /*
