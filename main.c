@@ -9,8 +9,7 @@
 #define LIGHT_SENSOR    BIT2            // Port 1.2
 
 int value=0, i=0 ;
-int highFlag = 0;
-int lowFlag = 0;
+int highFlag = 0, lowFlag = 0;
 int high = 0; // count for high hand
 int low = 0; // count for low hand
 int clockWisePass [5] = {1,0,1,0,1};
@@ -19,17 +18,15 @@ int stopPass [5] = {0,0,0,0,0};
 int inputPass [5];
 int index = 0;
 int light = 0, lightroom = 0, dimled=50;
-int temp = 0, temproom = 0;
-int touch =0, touchroom =0;
-int clockFlag = 0;
-int counterFlag = 0;
-int stopFlag = 0;
+int clockFlag = 0, counterFlag = 0, stopFlag = 0;
+int resetPassFlag = 0;
 int dummy = 0;
 int ADCReading [3];
 
 void fadeLED(int valuePWM); //this is from skeleton code, not using it
 void ConfigureAdc(void);
-void getanalogvalues();
+void getAnalogValues(void);
+void processAnalogValues(void);
 
 int main(void){
     WDTCTL = WDTPW + WDTHOLD;                   // Stop WDT
@@ -50,18 +47,34 @@ int main(void){
     __enable_interrupt();
     ConfigureAdc();
 
-    // reading the initial room values, lightroom, touchroom, temproom
+    // reading the initial room value lightroom
     // __delay_cycles(250);
     __delay_cycles(25000);
-    getanalogvalues();
+    getAnalogValues();
     lightroom = light;
-    //touchroom = touch;
-    //temproom = temp;
+
     __delay_cycles(250);
 
     __delay_cycles(200);
 
     for (;;){
+        /*
+         * When a high is detected it will reset the clockwise password
+         * When a low is detected it will reset the counterclockwise password
+         * The GREEN LED Blinks Accordingly
+         */
+        /*
+        if(resetPassFlag){
+            index = 0;
+            getAnalogValues();
+            processAnalogValues();
+            while(index < 5){
+                getAnalogValues();
+                processAnalogValues();
+            }
+            resetPassFlag = 0;
+        }
+        */
         if(index > 4){ //a full password is entered
             clockFlag = 0;
             counterFlag = 0;
@@ -133,58 +146,9 @@ int main(void){
             //Make motor spin in clockwise direction
         }
         //reading light repeatedly at the beginning of the main loop
-        getanalogvalues();
+        getAnalogValues();
         //Observe the dead zone for no action to avoid flickering
-        //I chose the range 1.05 to 1.10 of the value; that is no action if  (1.05 lightroom < light < 1.1 lightroom)
-        if(light < lightroom * 1.10 && light > lightroom * 1.05) {}
-        else{
-            if(light >= lightroom * 1.10) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
-                getanalogvalues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
-                if(light >= lightroom * 1.30){
-                    //P2OUT |= GREEN_LED; //Turn on Green
-                    // P2OUT &= ~RED_LED; //Turn off Red
-                    __delay_cycles(50000);
-                    lowFlag = 1;
-                    highFlag = 0;
-                } else if(light >= lightroom * 1.10){
-                    // P2OUT |= RED_LED; //Turn on Red
-                    // P2OUT &= ~GREEN_LED; //Turn off Green
-                    __delay_cycles(50000);
-                    highFlag = 1;
-                    lowFlag = 0;
-                }
-            }
-            if(light <= lightroom * 1.10) {
-                P2OUT &= ~RED_LED;
-                P2OUT &= ~GREEN_LED;
-                __delay_cycles(200);
-                //check flags and log corresponding password digit. This is done here so that we don't get multiple unintended entries
-                if(lowFlag){
-                    //BLINK RED LED ONCE SLOW
-                    P2OUT |= RED_LED; //Turn on Red
-                    __delay_cycles(250000);
-                    P2OUT &= ~RED_LED; //Turn off Red
-                    low += 1;
-                        inputPass[index] = 0;
-                        index +=1; //update index
-                } else if(highFlag){
-                    //BLINK RED LED TWICE FAST
-                    P2OUT |= RED_LED; //Turn on Red
-                    __delay_cycles(50000);
-                    P2OUT &= ~RED_LED; //Turn off Red
-                    __delay_cycles(50000);
-                    P2OUT |= RED_LED; //Turn on Red
-                    __delay_cycles(50000);
-                    P2OUT &= ~RED_LED; //Turn off Red
-                    high += 1;
-                    inputPass[index] = 1;
-                    index +=1; //update index
-                }
-                //reset flags
-                lowFlag = 0;
-                highFlag = 0;
-            }
-        }
+        processAnalogValues();
     }
 }
 
@@ -205,11 +169,10 @@ void fadeLED(int valuePWM){
     TACTL = TASSEL_2 + MC_1; // SMCLK, up mode
 }
 
-void getanalogvalues(){
+void getAnalogValues(void){
     i = 0;
     temp = 0;
-    light = 0;
-    touch =0;              // set all analog values to zero
+    light = 0;           // set all analog values to zero
     for(i=1; i<=50 ; i++){                       // read all three analog values 50 times each and average
         ADC10CTL0 &= ~ENC;
         while (ADC10CTL1 & BUSY);                       //Wait while ADC is busy
@@ -217,10 +180,61 @@ void getanalogvalues(){
         ADC10CTL0 |= (ENC | ADC10SC);                   //Start ADC Conversion
         while (ADC10CTL1 & BUSY);                       //Wait while ADC is busy
         light += ADCReading[0];                         // sum  all 50 reading for the three variables
-        touch += ADCReading[1];
-        temp += ADCReading[2];
     }
-    light = light/50; touch = touch/50; temp = temp/50;    // Average the 50 reading for the three variables
+    light = light/50;    // Average the 50 reading for the three variables
+}
+
+void processAnalogValues(void){
+    //I chose the range 1.05 to 1.10 of the value; that is no action if  (1.05 lightroom < light < 1.1 lightroom)
+    if(light < lightroom * 1.10 && light > lightroom * 1.05) {}
+    else{
+        if(light >= lightroom * 1.10) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
+            getAnalogValues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
+            if(light >= lightroom * 1.30){
+                //P2OUT |= GREEN_LED; //Turn on Green
+                // P2OUT &= ~RED_LED; //Turn off Red
+                __delay_cycles(50000);
+                lowFlag = 1;
+                highFlag = 0;
+            } else if(light >= lightroom * 1.10){
+                // P2OUT |= RED_LED; //Turn on Red
+                // P2OUT &= ~GREEN_LED; //Turn off Green
+                __delay_cycles(50000);
+                highFlag = 1;
+                lowFlag = 0;
+            }
+        }
+        if(light <= lightroom * 1.10) {
+            P2OUT &= ~RED_LED;
+            P2OUT &= ~GREEN_LED;
+            __delay_cycles(200);
+            //check flags and log corresponding password digit. This is done here so that we don't get multiple unintended entries
+            if(lowFlag){
+                //BLINK RED LED ONCE SLOW
+                P2OUT |= RED_LED; //Turn on Red
+                __delay_cycles(250000);
+                P2OUT &= ~RED_LED; //Turn off Red
+                low += 1;
+                    inputPass[index] = 0;
+                    index +=1; //update index
+            } else if(highFlag){
+                //BLINK RED LED TWICE FAST
+                P2OUT |= RED_LED; //Turn on Red
+                __delay_cycles(50000);
+                P2OUT &= ~RED_LED; //Turn off Red
+                __delay_cycles(50000);
+                P2OUT |= RED_LED; //Turn on Red
+                __delay_cycles(50000);
+                P2OUT &= ~RED_LED; //Turn off Red
+                high += 1;
+                inputPass[index] = 1;
+                index +=1; //update index
+            }
+            //reset flags
+            lowFlag = 0;
+            highFlag = 0;
+        }
+    }
 }
 
 #pragma vector=ADC10_VECTOR
@@ -230,6 +244,6 @@ __interrupt void ADC10_ISR(void){
 
 #pragma vector=PORT1_VECTOR
 __interrupt void PORT1_ISR(void){
-    P2OUT |= GREEN_LED;             //DISABLE GREEN LED
+    resetPassFlag = 1;
     P1IFG &= ~BUTTON;               // CLEAR INTERRUPT FLAG FOR PORT 1.3
 }
