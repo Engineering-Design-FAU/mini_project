@@ -9,6 +9,10 @@
 #define LIGHT_SENSOR    BIT2            // Port 1.2
 #define LOW_PULSE       1.50            // Constant that light is multiplied by to detect low pulse
 #define HIGH_PULSE      1.30            // Constant that light is multiplied by to detect high pulse
+#define MOTOR_OUT1      BIT4            // Port 1.4
+#define MOTOR_OUT2      BIT5            // Port 1.5
+#define PWM             BIT2            // Port 1.2
+
 
 int value=0, i=0 ;
 int highFlag = 0, lowFlag = 0;
@@ -22,7 +26,7 @@ int index = 0;
 int light = 0, lightroom = 0, dimled=50;
 int clockFlag = 0, counterFlag = 0, stopFlag = 0;
 int resetPassFlag = 0;
-int motor_val = 0;
+int motorFlag = 0;                  // 1 - BRAKE, 2 - FW, 3 - BRAKE, 4 - RV
 int ADCReading [3];
 
 void fadeLED(int valuePWM);                 //this is from skeleton code, not using it
@@ -31,7 +35,7 @@ void getAnalogValues(void);                 // Get analog values to convert to d
 void processAnalogValues(void);             // Process light variable to set high/low flag
 void greenLED(int green);                    // Function for setting green on or off
 void redLED(int red);                       // Function for setting red on or off
-void setMotor(int motor_val);               // Set Motor Outputs
+void setMotor(int motorFlag);               // Set Motor Outputs
 
 int main(void){
     WDTCTL = WDTPW + WDTHOLD;                   // Stop WDT
@@ -41,13 +45,14 @@ int main(void){
     P1REN = 0;
     P2REN = 0;
     P2DIR = 0;
-    P2DIR |= GREEN_LED;     // GREEN LED (BIT 0)
-    P2DIR |= RED_LED;       // RED LED (BIT 3)
-    P1DIR &= ~BUTTON;       //BUTTON IS AN INPUT
-    P1OUT |= BUTTON;        // PULL-UP RESISTOR
-    P1REN |= BUTTON;        // RESISTOR ENABLED
-    P1IFG &= ~BUTTON;       // CLEAR INTERRUPT FLAG
-    P1IE |= BUTTON;         // ENABLE BUTTON INTERRUPT
+    P2DIR |= (GREEN_LED | RED_LED);                       // SET LEDs as OUTPUT
+    P1DIR &= ~BUTTON;                                    //BUTTON IS AN INPUT
+    P1DIR |= (PWM | MOTOR_OUT1 | MOTOR_OUT2);             // SET PWM AND MOTOR OUTPUTS
+    P1OUT |= BUTTON;                                    // PULL-UP RESISTOR
+    P1REN |= BUTTON;                                    // RESISTOR ENABLED
+    P1IFG &= ~BUTTON;                                   // CLEAR INTERRUPT FLAG
+    P1IE |= BUTTON;                                     // ENABLE BUTTON INTERRUPT
+
 
     __enable_interrupt();
     ConfigureAdc();
@@ -91,7 +96,7 @@ int main(void){
             }
             if(clockFlag){
                 //passwords did not match for clockwise direction
-                //motor_val =1;
+                //motorFlag =1;
                 //now check for counter clockwise password
                 for(i=0; i<=4 ; i++){
                     if(counterWisePass[i] != inputPass[i]){
@@ -100,7 +105,7 @@ int main(void){
                 }
                 if(counterFlag){
                     //neither passwords matched
-                    //motor_val = 3;
+                    //motorFlag = 3;
                     //check that entered code is not stopPass
                     for(i=0; i<=4 ; i++){
                         if(stopPass[i] != inputPass[i]){
@@ -117,20 +122,20 @@ int main(void){
                         redLED(0);                      //Turn off Red
                     } else{
                         //stopPass matched
-                        motor_val = 5; //so that motor stops
+                        motorFlag = 5; //so that motor stops
                         greenLED(0); //Turn off Green
                     }
                 } else{
                     //passwords matched for counter clockwise direction
                     //Flash Green LED slow constantly
                     //Make motor spin in counter clockwise direction
-                    motor_val = 2;
+                    motorFlag = 2;
                 }
             } else{
                 //passwords matched for clockwise direction
                 //Flash Green LED fast constantly
                 //Make motor spin in clockwise direction
-                motor_val = 4;
+                motorFlag = 4;
             }
             index = 0; //reset index to enter password again
         }
@@ -158,21 +163,24 @@ void redLED(int red){
 }
 
 void setMotor(int value){
-    //according to motor_val value do something
-    if(motor_val == 2){
-        //passwords matched for counter clockwise direction
-        //Flash Green LED slow constantly
-        greenLED(1);                         //Turn on Green
-        __delay_cycles(250000);
-        greenLED(0);                        //Turn off Green
-        //Make motor spin in counter clockwise direction
-    } else if(motor_val == 4){
-        //passwords matched for clockwise direction
-        //Flash Green LED fast constantly
-        greenLED(1);                 //Turn on Green
-        __delay_cycles(50000);
-        greenLED(0);                //Turn off Green
-        //Make motor spin in clockwise direction
+    //according to motorFlag value do something
+    switch(value){
+    case 1:
+        P1OUT &= ~MOTOR_OUT1;
+        P1OUT &= ~MOTOR_OUT2;
+        break;
+    case 2:
+        P1OUT |= MOTOR_OUT1;
+        P1OUT &= ~MOTOR_OUT2;
+        break;
+    case 3:
+        P1OUT |= MOTOR_OUT1;
+        P1OUT |= MOTOR_OUT2;
+        break;
+    case 4:
+        P1OUT &= ~MOTOR_OUT1;
+        P1OUT |= MOTOR_OUT2;
+        break;
     }
 }
 
