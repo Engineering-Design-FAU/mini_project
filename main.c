@@ -59,7 +59,6 @@ int main(void){
     TA0CCR1 = 500;               //The period in microseconds that the power is ON. It's half the time, which translates to a 50% duty cycle.
     TA0CTL = TASSEL_2 + MC_1;    //TASSEL_2 selects SMCLK as the clock source, and MC_1 tells it to count up to the value in TA0CCR0.
 
-
     __enable_interrupt();
     ConfigureAdc();
     __bis_SR_register(LPM0_bits);       //Switch to low power mode 0.
@@ -69,9 +68,7 @@ int main(void){
     __delay_cycles(25000);
     getAnalogValues();
     lightroom = light;
-
     __delay_cycles(250);
-
     __delay_cycles(200);
 
     for (;;){
@@ -92,13 +89,15 @@ int main(void){
             resetPassFlag = 0;
         }
         */
-        while(motorFlag){
-            setMotor(motorFlag);
-            if(index > 4){
-              break;
+        if(motorFlag){
+            while(1){
+                setMotor(motorFlag);
+                if(index > 4){
+                  break;
+                }
+                getAnalogValues();
+                processAnalogValues();
             }
-            getAnalogValues();
-            processAnalogValues();
         }
         if(index > 4){ //a full password is entered
             clockFlag = 1;
