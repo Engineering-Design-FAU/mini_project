@@ -7,20 +7,19 @@
 #define GREEN_LED       BIT4            // Port 2.4
 #define BUTTON          BIT3            // Port 1.3
 #define LIGHT_SENSOR    BIT2            // Port 1.2
-#define LOW_PULSE       1.50            // Constant that light is multiplied by to detect low pulse
-#define HIGH_PULSE      1.30            // Constant that light is multiplied by to detect high pulse
+#define LOW_PULSE       1.30            // Constant that light is multiplied by to detect low pulse
+#define HIGH_PULSE      1.10            // Constant that light is multiplied by to detect high pulse
 #define MOTOR_OUT1      BIT4            // Port 1.4
 #define MOTOR_OUT2      BIT5            // Port 1.5
 #define PWM             BIT6            // Port 2.6
-
 
 int value=0, i=0 ;
 int highFlag = 0, lowFlag = 0;
 int high = 0; // count for high hand
 int low = 0; // count for low hand
 int clockWisePass [5] = {1,0,1,0,1};
-int counterWisePass [5] = {1,0,1,0,0};
-int stopPass [5] = {0,0,0,0,0};
+int counterWisePass [5] = {0,0,0,0,0};
+int stopPass [5] = {1,0,0,0,0};
 int inputPass [5];
 int index = 0;
 int light = 0, lightroom = 0, dimled=50;
@@ -70,8 +69,6 @@ int main(void){
     lightroom = light;
     __delay_cycles(250);
     __delay_cycles(200);
-
-    //motorFlag = 2;
 
     for (;;){
         /*
