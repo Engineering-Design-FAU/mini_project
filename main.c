@@ -7,8 +7,10 @@
 #define GREEN_LED       BIT4            // Port 2.4
 #define BUTTON          BIT3            // Port 1.3
 #define LIGHT_SENSOR    BIT2            // Port 1.2
-#define LOW_PULSE       1.30            // Constant that light is multiplied by to detect low pulse
+#define LOW_PULSE       5555555.30            // Constant that light is multiplied by to detect low pulse
 #define HIGH_PULSE      1.10            // Constant that light is multiplied by to detect high pulse
+#define LOW_DEADZONE    1.05            // Deadzone for light (low)
+#define HIGH_DEADZONE   1.10            // Deadzone for light (High)
 #define MOTOR_OUT1      BIT4            // Port 1.4
 #define MOTOR_OUT2      BIT5            // Port 1.5
 #define PWM             BIT6            // Port 2.6
@@ -18,8 +20,8 @@ int highFlag = 0, lowFlag = 0;
 int high = 0; // count for high hand
 int low = 0; // count for low hand
 int clockWisePass [5] = {1,0,1,0,1};
-int counterWisePass [5] = {0,0,0,0,0};
-int stopPass [5] = {1,0,0,0,0};
+int counterWisePass [5] = {1,0,1,0,0};
+int stopPass [5] = {0,0,0,0,0};
 int inputPass [5];
 int index = 0;
 int light = 0, lightroom = 0, dimled=50;
@@ -35,6 +37,7 @@ void processAnalogValues(void);             // Process light variable to set hig
 void greenLED(int green);                    // Function for setting green on or off
 void redLED(int red);                       // Function for setting red on or off
 void setMotor(int motorFlag);               // Set Motor Outputs
+void tryAgainLED(void);                           // To Let The User Know that Password was Wrong (Try Again)
 
 int main(void){
     WDTCTL = WDTPW + WDTHOLD;                   // Stop WDT
@@ -125,12 +128,12 @@ int main(void){
             }
             if(clockFlag){
                 motorFlag = 2;
-            }
-            if(counterFlag){
+            } else if(counterFlag){
                 motorFlag = 4;
-            }
-            if(stopFlag){
+            } else if(stopFlag && motorFlag > 0){
                 motorFlag = 1;
+            } else {
+                tryAgainLED();
             }
             index = 0; //reset index to enter password again
         }
@@ -205,6 +208,19 @@ void fadeLED(int valuePWM){
     TACTL = TASSEL_2 + MC_1; // SMCLK, up mode
 }
 
+void tryAgainLED(void){
+    redLED(0);
+    greenLED(0);
+    for(i = 0; i < 20; i++){
+        redLED(1);
+        greenLED(1);
+        __delay_cycles(50000);
+        redLED(0);
+        greenLED(0);
+        __delay_cycles(50000);
+    }
+}
+
 void getAnalogValues(void){
     i = 0;
     light = 0;           // set all analog values to zero
@@ -220,10 +236,10 @@ void getAnalogValues(void){
 }
 
 void processAnalogValues(void){
-    //I chose the range 1.05 to 1.10 of the value; that is no action if  (1.05 lightroom < light < 1.1 lightroom)
-    if(light < lightroom * 1.10 && light > lightroom * 1.05) {}
+    //Deadzone range for handling noise, so that the code does nothing
+    if(light < lightroom * HIGH_DEADZONE && light > lightroom * LOW_DEADZONE) {}
     else{
-        if(light >= lightroom * HIGH_PULSE) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
+        if(light >= lightroom * HIGH_DEADZONE) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
             getAnalogValues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
             if(light >= lightroom * LOW_PULSE){
                 __delay_cycles(50000);
@@ -235,7 +251,7 @@ void processAnalogValues(void){
                 lowFlag = 0;
             }
         }
-        if(light <= lightroom * HIGH_PULSE) {
+        if(light <= lightroom * HIGH_DEADZONE) {
             redLED(0);
             greenLED(0);
             __delay_cycles(200);
