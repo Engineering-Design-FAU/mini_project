@@ -93,31 +93,12 @@ int main(void){
         }
         */
         while(motorFlag){
-          switch(motorFlag){
-          case 1:
-              greenLED(0);
-              motorFlag = 0;
+            setMotor(motorFlag);
+            if(index > 4){
               break;
-          case 2:
-              greenLED(1);
-              __delay_cycles(250000);
-              greenLED(0);
-              break;
-          case 3:
-              greenLED(0);
-              motorFlag = 0;
-              break;
-          case 4:
-              greenLED(1);
-              __delay_cycles(50000);
-              greenLED(0);
-              break;
-          }
-          if(index > 4){
-            break;
-          }
-          getAnalogValues();
-          processAnalogValues();
+            }
+            getAnalogValues();
+            processAnalogValues();
         }
         if(index > 4){ //a full password is entered
             clockFlag = 1;
@@ -184,18 +165,28 @@ void setMotor(int value){
     case 1:
         P1OUT &= ~MOTOR_OUT1;
         P1OUT &= ~MOTOR_OUT2;
+        greenLED(0);
+        motorFlag = 0;
         break;
     case 2:
         P1OUT |= MOTOR_OUT1;
         P1OUT &= ~MOTOR_OUT2;
+        greenLED(1);
+        __delay_cycles(250000);
+        greenLED(0);
         break;
     case 3:
         P1OUT |= MOTOR_OUT1;
         P1OUT |= MOTOR_OUT2;
+        greenLED(0);
+        motorFlag = 0;
         break;
     case 4:
         P1OUT &= ~MOTOR_OUT1;
         P1OUT |= MOTOR_OUT2;
+        greenLED(1);
+        __delay_cycles(50000);
+        greenLED(0);
         break;
     }
 }
