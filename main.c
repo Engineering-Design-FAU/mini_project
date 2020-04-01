@@ -11,7 +11,7 @@
 #define HIGH_PULSE      1.30            // Constant that light is multiplied by to detect high pulse
 #define MOTOR_OUT1      BIT4            // Port 1.4
 #define MOTOR_OUT2      BIT5            // Port 1.5
-#define PWM             BIT2            // Port 1.2
+#define PWM             BIT6            // Port 2.6
 
 
 int value=0, i=0 ;
@@ -45,16 +45,24 @@ int main(void){
     P1REN = 0;
     P2REN = 0;
     P2DIR = 0;
-    P2DIR |= (GREEN_LED | RED_LED);                       // SET LEDs as OUTPUT
+    P2DIR |= (GREEN_LED | RED_LED | PWM);                       // SET LEDs as OUTPUT
+    P2SEL |= PWM;                                   // Select PWM as OUTPUT
     P1DIR &= ~BUTTON;                                    //BUTTON IS AN INPUT
-    P1DIR |= (PWM | MOTOR_OUT1 | MOTOR_OUT2);             // SET PWM AND MOTOR OUTPUTS
+    P1DIR |= (MOTOR_OUT1 | MOTOR_OUT2);             // SET PWM AND MOTOR OUTPUTS
     P1OUT |= BUTTON;                                    // PULL-UP RESISTOR
     P1REN |= BUTTON;                                    // RESISTOR ENABLED
     P1IFG &= ~BUTTON;                                   // CLEAR INTERRUPT FLAG
     P1IE |= BUTTON;                                     // ENABLE BUTTON INTERRUPT
 
+    TA0CCR0 = 1000;         //Set the period in the Timer A0 Capture/Compare 0 register to 1000 us.
+    TA0CCTL1 = OUTMOD_7;
+    TA0CCR1 = 500;               //The period in microseconds that the power is ON. It's half the time, which translates to a 50% duty cycle.
+    TA0CTL = TASSEL_2 + MC_1;    //TASSEL_2 selects SMCLK as the clock source, and MC_1 tells it to count up to the value in TA0CCR0.
+
+
     __enable_interrupt();
     ConfigureAdc();
+    __bis_SR_register(LPM0_bits);       //Switch to low power mode 0.
 
     // reading the initial room value lightroom
     // __delay_cycles(250);
