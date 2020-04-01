@@ -24,7 +24,7 @@ int stopPass [5] = {0,0,0,0,0};
 int inputPass [5];
 int index = 0;
 int light = 0, lightroom = 0, dimled=50;
-int clockFlag = 0, counterFlag = 0, stopFlag = 0;
+int clockFlag = 0, counterFlag = 0, stopFlag = 0;       // clockFlag (clockwise) & counterFlag (counterclockwise)
 int resetPassFlag = 0;
 int motorFlag = 0;                  // 1 - BRAKE, 2 - FW, 3 - BRAKE, 4 - RV
 int ADCReading [3];
@@ -86,56 +86,38 @@ int main(void){
         }
         */
         if(index > 4){ //a full password is entered
-            clockFlag = 0;
-            counterFlag = 0;
-            stopFlag = 0;
+            clockFlag = 1;
+            counterFlag = 1;
+            stopFlag = 1;
+            // Check if it is clockwise password
             for(i=0; i<=4 ; i++){
                 if(clockWisePass[i] != inputPass[i]){
-                    clockFlag = 1; //if code gets here, then entered password does not match clockwise direction password
+                    clockFlag = 0;
+                    break;
+                }
+            }
+            // Check if it is counter-clockwise password
+            for(i=0; i<=4 ; i++){
+                if(counterWisePass[i] != inputPass[i]){
+                    counterFlag = 0;
+                    break;
+                }
+            }
+            // Check if it is stop password
+            for(i=0; i<=4 ; i++){
+                if(stopPass[i] != inputPass[i]){
+                    stopFlag = 0;
+                    break;
                 }
             }
             if(clockFlag){
-                //passwords did not match for clockwise direction
-                //motorFlag =1;
-                //now check for counter clockwise password
-                for(i=0; i<=4 ; i++){
-                    if(counterWisePass[i] != inputPass[i]){
-                        counterFlag = 1; //if code get here, then entered password does not match counter clockwise direction password
-                    }
-                }
-                if(counterFlag){
-                    //neither passwords matched
-                    //motorFlag = 3;
-                    //check that entered code is not stopPass
-                    for(i=0; i<=4 ; i++){
-                        if(stopPass[i] != inputPass[i]){
-                            stopFlag = 1; //if code gets here, then entered password does not match clockwise direction password
-                        }
-                    }
-                    if(stopFlag){
-                        //No passwords matched
-                        //flash both LEDS
-                        greenLED(1);                  // Turn on Green LED
-                        redLED(1);                  // Turn on Red LED
-                        __delay_cycles(250000);
-                        greenLED(0);                 //Turn off Green
-                        redLED(0);                      //Turn off Red
-                    } else{
-                        //stopPass matched
-                        motorFlag = 5; //so that motor stops
-                        greenLED(0); //Turn off Green
-                    }
-                } else{
-                    //passwords matched for counter clockwise direction
-                    //Flash Green LED slow constantly
-                    //Make motor spin in counter clockwise direction
-                    motorFlag = 2;
-                }
-            } else{
-                //passwords matched for clockwise direction
-                //Flash Green LED fast constantly
-                //Make motor spin in clockwise direction
+                motorFlag = 2;
+            }
+            if(counterFlag){
                 motorFlag = 4;
+            }
+            if(stopFlag){
+                motorFlag = 1;
             }
             index = 0; //reset index to enter password again
         }
