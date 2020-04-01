@@ -53,7 +53,6 @@ int main(void){
     P1IFG &= ~BUTTON;                                   // CLEAR INTERRUPT FLAG
     P1IE |= BUTTON;                                     // ENABLE BUTTON INTERRUPT
 
-
     __enable_interrupt();
     ConfigureAdc();
 
@@ -71,7 +70,7 @@ int main(void){
         /*
          * When a high is detected it will reset the clockwise password
          * When a low is detected it will reset the counterclockwise password
-         * The GREEN LED Blinks Accordingly
+         * The RED LED Blinks Accordingly
          */
         /*
         if(resetPassFlag){
@@ -85,6 +84,33 @@ int main(void){
             resetPassFlag = 0;
         }
         */
+        while(motorFlag){
+          switch(motorFlag){
+          case 1:
+              greenLED(0);
+              motorFlag = 0;
+              break;
+          case 2:
+              greenLED(1);
+              __delay_cycles(250000);
+              greenLED(0);
+              break;
+          case 3:
+              greenLED(0);
+              motorFlag = 0;
+              break;
+          case 4:
+              greenLED(1);
+              __delay_cycles(50000);
+              greenLED(0);
+              break;
+          }
+          if(index > 4){
+            break;
+          }
+          getAnalogValues();
+          processAnalogValues();
+        }
         if(index > 4){ //a full password is entered
             clockFlag = 1;
             counterFlag = 1;
