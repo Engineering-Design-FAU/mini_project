@@ -7,6 +7,8 @@
 #define GREEN_LED       BIT4            // Port 2.4
 #define BUTTON          BIT3            // Port 1.3
 #define LIGHT_SENSOR    BIT2            // Port 1.2
+#define LOW_PULSE       1.50            // Constant that light is multiplied by to detect low pulse
+#define HIGH_PULSE      1.30            // Constant that light is multiplied by to detect high pulse
 
 int value=0, i=0 ;
 int highFlag = 0, lowFlag = 0;
@@ -187,15 +189,15 @@ void processAnalogValues(void){
     //I chose the range 1.05 to 1.10 of the value; that is no action if  (1.05 lightroom < light < 1.1 lightroom)
     if(light < lightroom * 1.10 && light > lightroom * 1.05) {}
     else{
-        if(light >= lightroom * 1.10) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
+        if(light >= lightroom * HIGH_PULSE) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
             getAnalogValues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
-            if(light >= lightroom * 1.30){
+            if(light >= lightroom * LOW_PULSE){
                 //P2OUT |= GREEN_LED; //Turn on Green
                 // P2OUT &= ~RED_LED; //Turn off Red
                 __delay_cycles(50000);
                 lowFlag = 1;
                 highFlag = 0;
-            } else if(light >= lightroom * 1.10){
+            } else if(light >= lightroom * HIGH_PULSE){
                 // P2OUT |= RED_LED; //Turn on Red
                 // P2OUT &= ~GREEN_LED; //Turn off Green
                 __delay_cycles(50000);
@@ -203,7 +205,7 @@ void processAnalogValues(void){
                 lowFlag = 0;
             }
         }
-        if(light <= lightroom * 1.10) {
+        if(light <= lightroom * HIGH_PULSE) {
             P2OUT &= ~RED_LED;
             P2OUT &= ~GREEN_LED;
             __delay_cycles(200);
