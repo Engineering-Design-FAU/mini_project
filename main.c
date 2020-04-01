@@ -171,7 +171,6 @@ void fadeLED(int valuePWM){
 
 void getAnalogValues(void){
     i = 0;
-    temp = 0;
     light = 0;           // set all analog values to zero
     for(i=1; i<=50 ; i++){                       // read all three analog values 50 times each and average
         ADC10CTL0 &= ~ENC;
