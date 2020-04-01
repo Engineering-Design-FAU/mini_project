@@ -22,13 +22,16 @@ int index = 0;
 int light = 0, lightroom = 0, dimled=50;
 int clockFlag = 0, counterFlag = 0, stopFlag = 0;
 int resetPassFlag = 0;
-int dummy = 0;
+int motor_val = 0;
 int ADCReading [3];
 
-void fadeLED(int valuePWM); //this is from skeleton code, not using it
+void fadeLED(int valuePWM);                 //this is from skeleton code, not using it
 void ConfigureAdc(void);
-void getAnalogValues(void);
-void processAnalogValues(void);
+void getAnalogValues(void);                 // Get analog values to convert to digital and set them to light variable
+void processAnalogValues(void);             // Process light variable to set high/low flag
+void greenLED(int green);                    // Function for setting green on or off
+void redLED(int red);                       // Function for setting red on or off
+void setMotor(int motor_val);               // Set Motor Outputs
 
 int main(void){
     WDTCTL = WDTPW + WDTHOLD;                   // Stop WDT
@@ -88,7 +91,7 @@ int main(void){
             }
             if(clockFlag){
                 //passwords did not match for clockwise direction
-                //dummy =1;
+                //motor_val =1;
                 //now check for counter clockwise password
                 for(i=0; i<=4 ; i++){
                     if(counterWisePass[i] != inputPass[i]){
@@ -97,7 +100,7 @@ int main(void){
                 }
                 if(counterFlag){
                     //neither passwords matched
-                    //dummy = 3;
+                    //motor_val = 3;
                     //check that entered code is not stopPass
                     for(i=0; i<=4 ; i++){
                         if(stopPass[i] != inputPass[i]){
@@ -114,37 +117,37 @@ int main(void){
                         P2OUT &= ~RED_LED; //Turn off Red
                     } else{
                         //stopPass matched
-                        dummy = 5; //so that motor stops
+                        motor_val = 5; //so that motor stops
                         P2OUT &= ~GREEN_LED; //Turn off Green
                     }
                 } else{
                     //passwords matched for counter clockwise direction
                     //Flash Green LED slow constantly
                     //Make motor spin in counter clockwise direction
-                    dummy = 2;
+                    motor_val = 2;
                 }
             } else{
                 //passwords matched for clockwise direction
                 //Flash Green LED fast constantly
                 //Make motor spin in clockwise direction
-                dummy = 4;
+                motor_val = 4;
             }
             index = 0; //reset index to enter password again
         }
-        //according to dummy value do something
-        if(dummy == 2){
+        //according to motor_val value do something
+        if(motor_val == 2){
             //passwords matched for counter clockwise direction
             //Flash Green LED slow constantly
-            P2OUT |= GREEN_LED; //Turn on Green
+            greenLED(1);                         //Turn on Green
             __delay_cycles(250000);
-            P2OUT &= ~GREEN_LED; //Turn off Green
+            greenLED(0);                        //Turn off Green
             //Make motor spin in counter clockwise direction
-        } else if(dummy == 4){
+        } else if(motor_val == 4){
             //passwords matched for clockwise direction
             //Flash Green LED fast constantly
-            P2OUT |= GREEN_LED; //Turn on Green
+            greenLED(1);                 //Turn on Green
             __delay_cycles(50000);
-            P2OUT &= ~GREEN_LED; //Turn off Green
+            greenLED(0);                //Turn off Green
             //Make motor spin in clockwise direction
         }
         //reading light repeatedly at the beginning of the main loop
@@ -154,6 +157,21 @@ int main(void){
     }
 }
 
+void greenLED(int green){
+    if(green){
+        P2OUT |= GREEN_LED;
+    } else {
+        P2OUT &= ~GREEN_LED;
+    }
+}
+
+void redLED(int red){
+    if(red){
+        P2OUT |= RED_LED;
+    } else{
+        P2OUT &= ~RED_LED;
+    }
+}
 
 void ConfigureAdc(void){
    ADC10CTL1 = INCH_2 | CONSEQ_1;           // A2 + A1 + A0, single sequence
@@ -192,41 +210,37 @@ void processAnalogValues(void){
         if(light >= lightroom * HIGH_PULSE) { // if light value is 10% greater than initial value take another measurement to make sure it is high or low
             getAnalogValues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
             if(light >= lightroom * LOW_PULSE){
-                //P2OUT |= GREEN_LED; //Turn on Green
-                // P2OUT &= ~RED_LED; //Turn off Red
                 __delay_cycles(50000);
                 lowFlag = 1;
                 highFlag = 0;
             } else if(light >= lightroom * HIGH_PULSE){
-                // P2OUT |= RED_LED; //Turn on Red
-                // P2OUT &= ~GREEN_LED; //Turn off Green
                 __delay_cycles(50000);
                 highFlag = 1;
                 lowFlag = 0;
             }
         }
         if(light <= lightroom * HIGH_PULSE) {
-            P2OUT &= ~RED_LED;
-            P2OUT &= ~GREEN_LED;
+            redLED(0);
+            greenLED(0);
             __delay_cycles(200);
             //check flags and log corresponding password digit. This is done here so that we don't get multiple unintended entries
             if(lowFlag){
                 //BLINK RED LED ONCE SLOW
-                P2OUT |= RED_LED; //Turn on Red
+                redLED(1);                              //Turn on Red
                 __delay_cycles(250000);
-                P2OUT &= ~RED_LED; //Turn off Red
+                redLED(0);                              //Turn off Red
                 low += 1;
-                    inputPass[index] = 0;
-                    index +=1; //update index
+                inputPass[index] = 0;
+                index +=1; //update index
             } else if(highFlag){
                 //BLINK RED LED TWICE FAST
-                P2OUT |= RED_LED; //Turn on Red
+                redLED(1);                              //Turn on Red
                 __delay_cycles(50000);
-                P2OUT &= ~RED_LED; //Turn off Red
+                redLED(0);                               //Turn off Red
                 __delay_cycles(50000);
-                P2OUT |= RED_LED; //Turn on Red
+                redLED(1);                               //Turn on Red
                 __delay_cycles(50000);
-                P2OUT &= ~RED_LED; //Turn off Red
+                redLED(0);                              //Turn off Red
                 high += 1;
                 inputPass[index] = 1;
                 index +=1; //update index
