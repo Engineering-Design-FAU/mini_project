@@ -7,10 +7,10 @@
 #define GREEN_LED       BIT4            // Port 2.4
 #define BUTTON          BIT3            // Port 1.3
 #define LIGHT_SENSOR    BIT2            // Port 1.2
-#define LOW_PULSE       0.85            // Constant that light is multiplied by to detect low pulse (greater than)
-#define HIGH_PULSE      0.95            // Constant that light is multiplied by to detect high pulse (greater than)
-#define HIGH_DEADZONE   1.00            // Deadzone is 0.9 * lightroom
-#define LOW_DEADZONE    1.00            // Deadzone when hand is too close to sensor
+#define LOW_PULSE       0.50            // Constant that light is multiplied by to detect low pulse (greater than)
+#define HIGH_PULSE      0.85            // Constant that light is multiplied by to detect high pulse (greater than)
+#define HIGH_DEADZONE   0.95            // Deadzone is 0.9 * lightroom
+#define LOW_DEADZONE    0.50            // Deadzone when hand is too close to sensor
 #define MOTOR_OUT1      BIT4            // Port 1.4
 #define MOTOR_OUT2      BIT5            // Port 1.5
 #define PWM             BIT6            // Port 2.6
@@ -25,7 +25,7 @@ int stopPass [5] = {0,0,0,0,0};
 int inputPass [5];
 int index = 0;
 double light = 0, lightroom = 0, dimled=50;
-int light_arr[5];
+int light_arr[10];
 int clockFlag = 0, counterFlag = 0, stopFlag = 0;       // clockFlag (clockwise) & counterFlag (counterclockwise)
 int resetPassFlag = 0;
 int motorFlag = 0;                  // 1 - BRAKE, 2 - FW, 3 - BRAKE, 4 - RV
@@ -95,7 +95,6 @@ int main(void){
         }
         */
         if(motorFlag > 0){
-
             while(1){
                 setMotor(motorFlag);
                 if(index > 4){
@@ -165,10 +164,10 @@ void redLED(int red){
 }
 
 void handsLED(void){
-    greenLED(1);
-    __delay_cycles(3000000);
-    greenLED(0);
-    __delay_cycles(3000000);
+    redLED(1);
+    __delay_cycles(2500000);
+    redLED(0);
+    __delay_cycles(2500000);
 }
 
 void setMotor(int value){
@@ -184,8 +183,9 @@ void setMotor(int value){
         P1OUT |= MOTOR_OUT1;
         P1OUT &= ~MOTOR_OUT2;
         greenLED(1);
-        __delay_cycles(250000);
+        __delay_cycles(50000);
         greenLED(0);
+        __delay_cycles(50000);
         break;
     case 3:
         P1OUT |= MOTOR_OUT1;
@@ -197,8 +197,9 @@ void setMotor(int value){
         P1OUT &= ~MOTOR_OUT1;
         P1OUT |= MOTOR_OUT2;
         greenLED(1);
-        __delay_cycles(50000);
+        __delay_cycles(250000);
         greenLED(0);
+        __delay_cycles(250000);
         break;
     }
 }
@@ -207,7 +208,7 @@ void ConfigureAdc(void){
    ADC10CTL1 = INCH_2 | CONSEQ_1;           // A2 + A1 + A0, single sequence
    ADC10CTL0 = ADC10SHT_2 | MSC | ADC10ON;
    while (ADC10CTL1 & BUSY);
-   ADC10DTC1 = 0x05;                    // 10 conversions
+   ADC10DTC1 = 0x0A;                    // 10 conversions
    ADC10AE0 |= LIGHT_SENSOR;            // ADC10 option select THIS IS FROM SKELETON CODE, MAY NEED TO CHANGE
 }
 
@@ -239,19 +240,30 @@ void getAnalogValues(void){
     while (ADC10CTL1 & BUSY);                       //Wait while ADC is busy
     ADC10SA = (int)light_arr;                       //RAM Address of ADC Data, must be reset every conversion
     ADC10CTL0 |= (ENC | ADC10SC);                   //Start ADC Conversion
-    for(i = 0; i < 5; i++){
+    for(i = 0; i < 10; i++){
         light += (double)light_arr[i];
     }
-    light /= 5.0;
+    light /= 10.0;
 }
 
 void processAnalogValues(void){
-
     //Deadzone range for handling noise, so that the code does nothing
-    if(light < (lightroom * HIGH_DEADZONE) && light < (lightroom * LOW_DEADZONE)) { // Check if there is a hand in our zone
-        handsLED();
-        __delay_cycles(3000000);
-        getAnalogValues(); //get another measurement to be sure and avoid a High measurement before every Low measurement
+    if(light < (lightroom * HIGH_DEADZONE) && light > (lightroom * LOW_DEADZONE)) { // Check if there is a hand in our zone
+        //handsLED();
+
+        while(1){
+            int temp = light;
+            __delay_cycles(250000);
+            getAnalogValues();
+            if(temp - light < temp * 0.075 || light - temp < temp * 0.075){
+                break;
+            }
+        }
+        __delay_cycles(250000);
+        getAnalogValues();
+        __delay_cycles(500000);
+        getAnalogValues();
+        __delay_cycles(250000);
         if(light >= (lightroom * HIGH_PULSE)){\
             lowFlag = 0;
             highFlag = 1;
@@ -259,7 +271,6 @@ void processAnalogValues(void){
             highFlag = 0;
             lowFlag = 1;
         }
-        handsLED();
         redLED(0);
         greenLED(0);
         //check flags and log corresponding password digit. This is done here so that we don't get multiple unintended entries
@@ -268,6 +279,7 @@ void processAnalogValues(void){
             redLED(1);                              //Turn on Red
             __delay_cycles(250000);
             redLED(0);                              //Turn off Red
+            __delay_cycles(250000);
             low += 1;
             inputPass[index] = 0;
             index +=1; //update index
@@ -280,6 +292,7 @@ void processAnalogValues(void){
             redLED(1);                               //Turn on Red
             __delay_cycles(50000);
             redLED(0);                              //Turn off Red
+            __delay_cycles(50000);
             high += 1;
             inputPass[index] = 1;
             index +=1; //update index
@@ -287,15 +300,14 @@ void processAnalogValues(void){
         //reset flags
         lowFlag = 0;
         highFlag = 0;
-        light = lightroom;
     }
 }
-/*
+
 #pragma vector=ADC10_VECTOR
 __interrupt void ADC10_ISR(void){
     __bic_SR_register_on_exit(CPUOFF);
 }
-*/
+
 #pragma vector=PORT1_VECTOR
 __interrupt void PORT1_ISR(void){
     resetPassFlag = 1;
